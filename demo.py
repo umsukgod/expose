@@ -53,6 +53,8 @@ from expose.config import cfg
 from expose.config.cmd_parser import set_face_contour
 from expose.utils.plot_utils import HDRenderer
 
+import pickle
+from scipy.spatial.transform import Rotation as R
 rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
 resource.setrlimit(resource.RLIMIT_NOFILE, (rlimit[1], rlimit[1]))
 
@@ -405,13 +407,13 @@ def main(
 
         for idx in tqdm(range(len(body_targets)), 'Saving ...'):
             fname = body_targets[idx].get_field('fname')
-            curr_out_path = osp.join(demo_output_folder, fname)
+            curr_out_path = demo_output_folder
             os.makedirs(curr_out_path, exist_ok=True)
 
             if save_vis:
                 for name, curr_img in out_img.items():
-                    pil_img.fromarray(curr_img[idx]).save(
-                        osp.join(curr_out_path, f'{name}.png'))
+                    pil_img.fromarray(curr_img[idx]).save(osp.join(curr_out_path, f'{fname[:3]}.png'))
+                        # osp.join(curr_out_path, f'{name}.png'))
 
             if save_mesh:
                 # Store the mesh predicted by the body-crop network
@@ -419,7 +421,7 @@ def main(
                 naive_mesh.vertices = Vec3d(
                     model_vertices[idx] + hd_params['transl'][idx])
                 naive_mesh.triangles = Vec3i(faces)
-                mesh_fname = osp.join(curr_out_path, f'body_{fname}.ply')
+                mesh_fname = osp.join(curr_out_path, f'body_{fname[:3]}.ply')
                 o3d.io.write_triangle_mesh(mesh_fname, naive_mesh)
 
                 # Store the final mesh
@@ -427,11 +429,11 @@ def main(
                 expose_mesh.vertices = Vec3d(
                     final_model_vertices[idx] + hd_params['transl'][idx])
                 expose_mesh.triangles = Vec3i(faces)
-                mesh_fname = osp.join(curr_out_path, f'{fname}.ply')
+                mesh_fname = osp.join(curr_out_path, f'{fname[:3]}.ply')
                 o3d.io.write_triangle_mesh(mesh_fname, expose_mesh)
 
             if save_params:
-                params_fname = osp.join(curr_out_path, f'{fname}_params.npz')
+                params_fname = osp.join(curr_out_path, f'{fname[:3]}_params.pkl')
                 out_params = dict(fname=fname)
                 for key, val in stage_n_out.items():
                     if torch.is_tensor(val):
@@ -444,7 +446,15 @@ def main(
                         out_params[key] = val[idx].item()
                     else:
                         out_params[key] = val[idx]
-                np.savez_compressed(params_fname, **out_params)
+                # np.savez_compressed(params_fname, **out_params)
+                # with open(result_fn, 'wb') as result_file:
+                out_params['global_orient'] = R.from_matrix(out_params['global_orient']).as_rotvec()
+                out_params['body_pose'] = R.from_matrix(out_params['body_pose']).as_rotvec()
+                out_params['jaw_pose'] = R.from_matrix(out_params['jaw_pose']).as_rotvec()
+                out_params['left_hand_pose'] = R.from_matrix(out_params['left_hand_pose']).as_rotvec()
+                out_params['right_hand_pose'] = R.from_matrix(out_params['right_hand_pose']).as_rotvec()
+                with open(params_fname, 'wb') as result_file:
+                    pickle.dump(out_params, result_file, protocol=2)
 
             if show:
                 nrows = 1
