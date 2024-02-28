@@ -409,10 +409,11 @@ def main(
             fname = body_targets[idx].get_field('fname')
             curr_out_path = demo_output_folder
             os.makedirs(curr_out_path, exist_ok=True)
+            os.makedirs(curr_out_path+"/images", exist_ok=True)
 
             if save_vis:
                 for name, curr_img in out_img.items():
-                    pil_img.fromarray(curr_img[idx]).save(osp.join(curr_out_path, f'{fname[:3]}.png'))
+                    pil_img.fromarray(curr_img[idx]).save(osp.join(curr_out_path+"/images", f'{fname[:3]}.png'))
                         # osp.join(curr_out_path, f'{name}.png'))
 
             if save_mesh:
